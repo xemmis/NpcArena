@@ -67,7 +67,7 @@ namespace AI.Core
 
         private void UpdateCell()
         {
-            if (_currentState is not (Chase or Retreat)) return;
+            if (_currentState is not (Chase or Retreat or Advance)) return;
 
             _cellUpdateTick -= Time.deltaTime;
             if (_cellUpdateTick > 0) return;
@@ -114,7 +114,14 @@ namespace AI.Core
         {
             if (!TryFindEnemy(out var enemy))
             {
-                if (_currentState is not Idle) ChangeState(new Idle());
+                if (NpcLocator.TryGetRallyArea(out var rallyArea))
+                {
+                    if (_currentState is not Advance) ChangeState(new Advance(rallyArea));
+                }
+                else if (_currentState is not Idle)
+                {
+                    ChangeState(new Idle());
+                }
                 return;
             }
 

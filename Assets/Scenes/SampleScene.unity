@@ -529,6 +529,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AI.Testing.ArenaSpawner
   _bootstrap: {fileID: 1088366450}
+  _layout: 2
   _squads:
   - Faction: 1
     Data: {fileID: 11400000, guid: d50250e8d3aa41448a1d2cef8cc85af7, type: 2}
@@ -539,12 +540,15 @@ MonoBehaviour:
   - Faction: 0
     Data: {fileID: 11400000, guid: 921dd79678be69a44896d1d1a9b76185, type: 2}
     GizmoColor: {r: 0, g: 1, b: 0, a: 1}
-  _unitsPerSquad: 1200
+  _unitsPerSquad: 700
   _spacing: 1.5
   _engageDistance: 8
   _spawnPerFrame: 25
   _navMeshSampleRadius: 2
   _spawnOnStart: 1
+  _advanceToCenter: 0
+  _rallyRadius: 6
+  _roamRadius: 60
 --- !u!1 &1088051136
 GameObject:
   m_ObjectHideFlags: 0

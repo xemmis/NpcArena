@@ -17,7 +17,15 @@ namespace AI.Testing
             public Color GizmoColor;
         }
 
+        // Squads - каждая фракция отдельным отрядом по кругу, отряды сходятся в центре.
+        // Mixed  - все юниты одной сеткой вокруг центра, фракции чередуются шахматкой:
+        //          у каждого юнита враг стоит вплотную с первого кадра.
+        // Roam   - все юниты одной фракции (первый отряд) одной сеткой, без боя бродят
+        //          по случайным точкам вокруг центра. Замер стоимости движения толпы.
+        private enum SpawnLayout { Squads, Mixed, Roam }
+
         [SerializeField] private GameBootstrap _bootstrap = null;
+        [SerializeField] private SpawnLayout _layout = SpawnLayout.Squads;
         [SerializeField] private Squad[] _squads =
         {
             new Squad { Faction = Faction.Player, GizmoColor = Color.blue },
@@ -31,13 +39,26 @@ namespace AI.Testing
         [SerializeField, Min(1)] private int _spawnPerFrame = 25;
         [SerializeField, Min(0.1f)] private float _navMeshSampleRadius = 2f;
         [SerializeField] private bool _spawnOnStart = true;
+        [SerializeField] private bool _advanceToCenter = true;
+        [SerializeField, Min(1f)] private float _rallyRadius = 6f;
+        [SerializeField, Min(1f)] private float _roamRadius = 60f;
 
         private readonly List<GameObject> _spawned = new();
         private Coroutine _spawnRoutine = null;
 
         private void Start()
         {
+            if (_layout == SpawnLayout.Roam)
+                NpcLocator.SetRallyArea(new RallyArea(transform.position, _roamRadius, roam: true));
+            else if (_advanceToCenter)
+                NpcLocator.SetRallyArea(new RallyArea(transform.position, _rallyRadius, roam: false));
+
             if (_spawnOnStart) Spawn();
+        }
+
+        private void OnDisable()
+        {
+            NpcLocator.ClearRallyArea();
         }
 
         [ContextMenu("Spawn")]
@@ -47,7 +68,9 @@ namespace AI.Testing
             if (!TryGetFactory(out var factory) || !Validate()) return;
 
             Clear();
-            _spawnRoutine = StartCoroutine(SpawnRoutine(factory));
+            _spawnRoutine = StartCoroutine(_layout == SpawnLayout.Squads
+                ? SpawnRoutine(factory)
+                : GridSpawnRoutine(factory, mixFactions: _layout == SpawnLayout.Mixed));
         }
 
         [ContextMenu("Clear")]
@@ -95,6 +118,46 @@ namespace AI.Testing
                     spawnedThisFrame = 0;
                     yield return null;
                 }
+            }
+
+            if (skipped > 0)
+                Debug.LogWarning($"{nameof(ArenaSpawner)}: {skipped} units skipped, no NavMesh within {_navMeshSampleRadius}m", this);
+
+            _spawnRoutine = null;
+        }
+
+        private IEnumerator GridSpawnRoutine(INpcFactory factory, bool mixFactions)
+        {
+            int total = _unitsPerSquad * _squads.Length;
+            int columns = Mathf.CeilToInt(Mathf.Sqrt(total));
+            float half = (columns - 1) * _spacing * 0.5f;
+
+            int spawnedThisFrame = 0;
+            int skipped = 0;
+
+            for (int i = 0; i < total; i++)
+            {
+                int column = i % columns;
+                int row = i / columns;
+
+                // (column + row) вместо i: при i % n фракции легли бы полосами, если columns кратно n.
+                // Так соседи и по строке, и по столбцу всегда из чужих фракций.
+                var squad = mixFactions ? _squads[(column + row) % _squads.Length] : _squads[0];
+
+                var position = transform.position + new Vector3(column * _spacing - half, 0f, row * _spacing - half);
+
+                if (!NavMesh.SamplePosition(position, out var hit, _navMeshSampleRadius, NavMesh.AllAreas))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                _spawned.Add(factory.Spawn(squad.Data, hit.position, squad.Faction));
+
+                if (++spawnedThisFrame < _spawnPerFrame) continue;
+
+                spawnedThisFrame = 0;
+                yield return null;
             }
 
             if (skipped > 0)
@@ -179,6 +242,22 @@ namespace AI.Testing
         private void OnDrawGizmosSelected()
         {
             if (_squads == null || _squads.Length == 0) return;
+
+            if (_layout != SpawnLayout.Squads)
+            {
+                int columns = Mathf.CeilToInt(Mathf.Sqrt(_unitsPerSquad * _squads.Length));
+                float side = columns * _spacing;
+
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawWireCube(transform.position, new Vector3(side, 0.1f, side));
+
+                if (_layout == SpawnLayout.Roam)
+                {
+                    Gizmos.color = Color.cyan;
+                    Gizmos.DrawWireSphere(transform.position, _roamRadius);
+                }
+                return;
+            }
 
             var half = GetHalfExtents();
             var size = new Vector3(half.x * 2f + _spacing, 0.1f, half.y * 2f + _spacing);
