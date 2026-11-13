@@ -96,3 +96,6 @@ Testing/             ArenaSpawner расставляет юнитов (Squads / 
 ## Запуск
 
 Unity 6000.3.10f1. Открыть сцену арены и нажать Play, `ArenaSpawner` сам расставит отряды и бой начнётся. Размер отряда задаётся полем `Units Per Squad` у `ArenaSpawner`, режим спавна — полем `Layout` (`Squads`, `Mixed`, `Roam`). В `Mixed` и `Roam` всего юнитов `Units Per Squad × число отрядов`, радиус брожения — `Roam Radius`.
+
+
+Модели персонажей и окружения: KayKit (Kay Lousberg), лицензия в папках ассетов.
